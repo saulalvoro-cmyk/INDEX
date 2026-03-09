@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario Administrativo - Versión Estable</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --font-family: 'Inter', sans-serif;
+            --gemini-blue: #4285F4;
+            --gemini-gray: #64748b;
+            --background-primary: #f8fafc;
+            --background-secondary: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-light: #64748b;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        body { background-color: var(--background-primary); color: var(--text-primary); font-family: var(--font-family); line-height: 1.6; padding: 2rem; }
+        .container { max-width: 1600px; margin: 0 auto; background-color: var(--background-secondary); border-radius: 1rem; box-shadow: var(--shadow-lg); border: 1px solid var(--border-color); overflow: hidden; }
+        .header { background: linear-gradient(135deg, var(--gemini-gray), var(--gemini-blue)); color: white; padding: 2rem; text-align: center; }
+        .header h1 { font-size: 2rem; font-weight: 700; margin: 0; }
+        .tabs { display: flex; background: var(--background-primary); border-bottom: 1px solid var(--border-color); overflow-x: auto; padding: 0 1.5rem; }
+        .tab { padding: 1rem 1.25rem; cursor: pointer; font-weight: 600; color: var(--text-light); transition: all 0.2s ease-in-out; border-bottom: 3px solid transparent; white-space: nowrap; }
+        .tab.active { color: var(--gemini-blue); border-bottom: 3px solid var(--gemini-blue); }
+        .tab:hover { color: var(--text-primary); }
+        .tab-content { display: none; padding: 2rem; }
+        .tab-content.active { display: block; }
+        .filters, .massive-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); align-items: end; gap: 1.5rem; margin-bottom: 1.5rem; padding: 1.5rem; background-color: var(--background-primary); border: 1px solid var(--border-color); border-radius: 0.75rem; }
+        .massive-actions h3 { grid-column: 1 / -1; font-size: 1.25rem; font-weight: 600; margin-bottom: 0; color: var(--text-primary); }
+        .action-group, .filter-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        label { font-weight: 500; color: var(--text-secondary); font-size: 0.875rem; }
+        input[type="text"], input[type="month"], select, textarea { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border-color); border-radius: 0.5rem; font-size: 1rem; font-family: var(--font-family); background-color: var(--background-secondary); transition: all 0.2s ease-in-out; }
+        input[type="text"]:focus, input[type="month"]:focus, select:focus, textarea:focus { outline: none; border-color: var(--gemini-blue); box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.2); }
+        textarea { min-height: 120px; resize: vertical; }
+        .buttons { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.5rem 0; }
+        button { padding: 0.75rem 1.25rem; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.2s ease-in-out; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: var(--shadow-sm); }
+        button:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+        .btn-primary { background-color: var(--gemini-blue); }
+        .btn-success { background-color: var(--success); }
+        .btn-warning { background-color: var(--warning); color: var(--text-primary); }
+        .btn-danger { background-color: var(--danger); }
+        .btn-purple { background-color: var(--gemini-gray); }
+        table { border-collapse: collapse; width: 100%; margin-top: 1.5rem; font-size: 0.9rem; background-color: var(--background-secondary); border-radius: 0.75rem; overflow: hidden; box-shadow: var(--shadow-sm); }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { background-color: var(--background-primary); color: var(--text-secondary); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: #f8fafc; }
+        .money-value { font-weight: 600; color: #166534; }
+        .total-row { font-weight: bold; background-color: var(--background-primary); }
+        .urgente-row { background-color: #fee2e2 !important; font-weight: 600; }
+        .recotizado-row { background-color: #fef9c3 !important; }
+        .urgente-row td:first-child::before { content: "(!)"; margin-right: 0.5rem; color: var(--danger); font-weight: 900; }
+        .notification { position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 0.5rem; color: white; box-shadow: var(--shadow-md); z-index: 1000; display: none; font-weight: 500; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); backdrop-filter: blur(5px); align-items: center; justify-content: center; }
+        .modal-content { background-color: var(--background-secondary); padding: 2rem; border-radius: 1rem; box-shadow: var(--shadow-lg); width: 90%; max-width: 600px; position: relative; border: 1px solid var(--border-color); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
+        .modal-header h2 { font-size: 1.5rem; font-weight: 600; color: var(--text-primary); }
+        .close-button { color: var(--text-light); font-size: 1.8rem; font-weight: bold; cursor: pointer; transition: color 0.2s ease-in-out; }
+        .close-button:hover { color: var(--text-primary); }
+        .modal-footer { display: flex; justify-content: space-between; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color); }
+        .settings-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        .settings-card { background-color: var(--background-secondary); border: 1px solid var(--border-color); border-radius: 1rem; padding: 2rem; box-shadow: var(--shadow-md); }
+        .settings-card h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
+        .config-list { max-height: 250px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 0.5rem; background-color: var(--background-primary); padding: 0.5rem; margin-top: 1rem; }
+        .config-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); }
+        .config-item:last-child { border-bottom: none; }
+        .config-item.log-item { display: block; font-size: 0.8rem; }
+        .delete-btn { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem; padding: 0.2rem 0.5rem; transition: all 0.2s ease; }
+        .delete-btn:hover { color: #b91c1c; transform: scale(1.1); }
+        .add-config-item { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .add-config-item input { flex-grow: 1; }
+        .add-config-item button { flex-shrink: 0; }
+        .counters-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .counter-card { background-color: var(--background-secondary); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1.5rem; text-align: center; box-shadow: var(--shadow-sm); transition: transform 0.2s ease; border-top-width: 4px; }
+        .counter-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+        .counter-title { font-size: 0.9rem; color: var(--text-light); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .counter-value { font-size: 2.2rem; font-weight: 700; color: var(--text-primary); }
+        .counter-value-small { font-size: 1.2rem; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .counter-card.total { border-top-color: var(--gemini-blue); }
+        .counter-card.success { border-top-color: var(--success); }
+        .counter-card.warning { border-top-color: var(--warning); }
+        .charts-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; }
+        .chart-container { background-color: var(--background-secondary); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1.5rem; box-shadow: var(--shadow-sm); min-height: 450px; }
+        .inventario-banco-section { margin-bottom: 2rem; }
+        .inventario-banco-section h3 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); margin-bottom: -0.5rem; }
+        @media (max-width: 768px) {
+            body { padding: 1rem; }
+            .header { padding: 1.5rem; }
+            .header h1 { font-size: 1.75rem; }
+            .tab-content { padding: 1.5rem; }
+            .filters, .massive-actions { grid-template-columns: 1fr; }
+            .buttons { flex-direction: column; }
+            .buttons button { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header"><h1>Inventario Administrativo</h1></div>
+        <div class="tabs">
+            <div class="tab active" data-tab="expedientes">Expedientes</div>
+            <div class="tab" data-tab="reporte-firmas">Reporte de Firmas</div>
+            <div class="tab" data-tab="inventario-tramites">Inventario de Trámites</div>
+            <div class="tab" data-tab="analisis-avanzado">Análisis Avanzado (Beta)</div>
+            <div class="tab" data-tab="herramientas">Herramientas (Beta)</div>
+            <div class="tab" data-tab="ajustes">Ajustes</div>
+        </div>
+
+        <div class="tab-content active" id="expedientes">
+            <div class="filters">
+                <div class="filter-group"><label>Buscar por Expediente o Banco</label><input type="text" id="searchInput" placeholder="Escriba y presione Enter..."></div>
+                <div class="filter-group"><label for="banco">Banco</label><select id="banco"><option value="">Todos</option></select></div>
+                <div class="filter-group"><label for="estatus">Estatus</label><select id="estatus"><option value="">Todos</option></select></div>
+                <div class="filter-group"><label>Fecha (Mes/Año)</label><div style="display: flex; gap: 10px;"><select id="month"><option value="">Mes</option><option value="1">Ene</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Abr</option><option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Ago</option><option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dic</option></select><select id="year"><option value="">Año</option></select></div></div>
+            </div>
+            <textarea id="lista" placeholder="Pega una lista de expedientes. Si existen, se actualizarán. Si no, se crearán como nuevos..."></textarea>
+            <div class="buttons">
+                <button onclick="procesarLista()" class="btn-success">➕ Procesar Lista</button>
+                <button onclick="limpiarFiltros()" class="btn-warning">🗑️ Limpiar Filtros</button>
+            </div>
+            <div class="massive-actions">
+                <h3>Acciones Masivas</h3>
+                <div class="action-group"><label for="massive-month">Marcar Mes como Urgente:</label><div style="display: flex; gap: 10px; align-items: center;"><select id="massive-month"><option value="">Mes</option><option value="1">Ene</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Abr</option><option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Ago</option><option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dic</option></select><select id="massive-year"><option value="">Año</option></select><button onclick="marcarMesComoUrgente()" class="btn-danger" style="width: auto; flex-shrink: 0;">❗</button></div></div>
+                <div class="action-group"><label for="massive-banco">Marcar Banco como Urgente:</label><div style="display: flex; gap: 10px; align-items: center;"><select id="massive-banco"><option value="">-- Seleccionar Banco --</option></select><button onclick="marcarBancoComoUrgente()" class="btn-danger" style="width: auto; flex-shrink: 0;">❗</button></div></div>
+            </div>
+            <div id="tabla"></div>
+        </div>
+        
+        <div class="tab-content" id="reporte-firmas">
+            <h2>Reporte de Firmas (Expedientes Activos: RECIBIDO / EN FIRMA)</h2>
+            <div id="firmas-counters" class="counters-container"></div>
+            <div class="buttons">
+                <button onclick="exportarReporteFirmasPDF()" class="btn-primary">📄 Generar Reporte de Expedientes RECIBIDOS PDF</button>
+            </div>
+            <div class="charts-container"><div class="chart-container"><canvas id="distribucionAnioChart"></canvas></div></div>
+        </div>
+
+        <div class="tab-content" id="inventario-tramites">
+            <h2>Inventario de Trámites Urgentes/Recotizados</h2>
+            <div class="buttons"><button onclick="exportarPDF('inventario-tramites')" class="btn-primary">📄 Generar Reporte Profesional PDF</button></div>
+            <div id="inventario-tabla"></div>
+        </div>
+        
+        <div class="tab-content" id="analisis-avanzado">
+            <h2>Análisis Avanzado (Beta)</h2>
+            <div id="kpi-counters" class="counters-container"></div>
+            <div class="charts-container">
+                <div class="chart-container"><canvas id="valorPorBancoChart"></canvas></div>
+                <div class="chart-container"><canvas id="comparativaNotariasChart"></canvas></div>
+                <div class="chart-container"><canvas id="tendenciaMensualChart"></canvas></div>
+                <div class="chart-container"><canvas id="composicionEstatusChart"></canvas></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="herramientas">
+            <h2>Herramientas (Beta)</h2>
+            <div class="settings-panel">
+                <div class="settings-card">
+                    <h3>Control de Calidad de Datos</h3>
+                    <p>Encuentra expedientes con información faltante o potencialmente incorrecta.</p>
+                    <div class="buttons">
+                        <button onclick="buscarDuplicados()" class="btn-primary">🔍 Buscar Duplicados</button>
+                        <button onclick="buscarIncompletos()" class="btn-warning">⚠️ Buscar Incompletos</button>
+                    </div>
+                    <div id="calidad-resultado" class="config-list" style="max-height: 400px;"></div>
+                </div>
+                <div class="settings-card">
+                    <h3>Operaciones Masivas</h3>
+                    <p>Realiza cambios a grandes grupos de expedientes de forma segura.</p>
+                    <div class="massive-actions" style="padding: 0; border: none; background: none; display: flex; flex-direction: column; gap: 1.5rem;">
+                        <div class="action-group">
+                            <label><strong>Archivar por Fecha:</strong></label>
+                            <div style="display: flex; gap: 10px;">
+                               <select id="archive-month"><option value="">Mes</option><option value="1">Ene</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Abr</option><option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Ago</option><option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dic</option></select>
+                               <select id="archive-year"><option value="">Año</option></select>
+                            </div>
+                            <button onclick="archivarMasivamente()" class="btn-purple">📦 Archivar Mes</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-card">
+                    <h3>Registro de Actividad Reciente</h3>
+                    <p>Muestra las últimas 15 acciones importantes realizadas en el sistema.</p>
+                    <div id="activity-log-list" class="config-list" style="max-height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="ajustes">
+            <div class="settings-panel">
+                <div class="settings-card">
+                    <h3>Gestión de Datos</h3>
+                    <div class="buttons">
+                        <button onclick="importarDatos()" class="btn-primary">📥 Importar Datos (.json)</button>
+                        <button onclick="exportarDatos()" class="btn-success">📤 Exportar Datos (.json)</button>
+                        <button onclick="borrarTodo()" class="btn-danger">🗑️ Borrar Todos los Datos</button>
+                    </div>
+                </div>
+                <div class="settings-card">
+                    <h3>Gestión de Bancos</h3>
+                    <div class="config-list" id="bancos-list"></div>
+                    <div class="add-config-item">
+                        <input type="text" id="new-banco-input" placeholder="Añadir nuevo banco">
+                        <button onclick="gestionarConfiguracion('banco')" class="btn-success">➕</button>
+                    </div>
+                </div>
+                <div class="settings-card">
+                    <h3>Gestión de Estatus</h3>
+                    <div class="config-list" id="estatus-list"></div>
+                    <div class="add-config-item">
+                        <input type="text" id="new-estatus-input" placeholder="Añadir nuevo estatus">
+                        <button onclick="gestionarConfiguracion('estatus')" class="btn-success">➕</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+    <div id="editExpedienteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2>Editar Expediente</h2><span class="close-button" onclick="closeModal('editExpedienteModal')">&times;</span></div>
+            <div class="modal-body">
+                <div class="form-group"><label for="edit-numero">Número de Expediente</label><input type="text" id="edit-numero" disabled></div>
+                <div class="form-group"><label for="edit-banco">Banco</label><select id="edit-banco"></select></div>
+                <div class="form-group"><label for="edit-estatus">Estatus</label><select id="edit-estatus"></select></div>
+                <div class="form-group"><label for="edit-notaria">Notaría</label><select id="edit-notaria"><option value="notaria27">Notaría 27</option><option value="notaria30">Notaría 30</option></select></div>
+                <div class="form-group"><label for="edit-fecha">Fecha (Año-Mes)</label><input type="month" id="edit-fecha"></div>
+                <div class="form-group"><label for="edit-valor">Valor</label><input type="text" id="edit-valor" placeholder="$0.00"></div>
+                <div class="form-group"><label>Historial de Estatus</label><div id="edit-historial" style="max-height: 100px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; border-radius: 5px; background-color: var(--background-primary);"></div></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-danger" style="margin-right: auto;" onclick="eliminarExpediente()">Eliminar</button>
+                <button class="btn-primary" onclick="guardarEdicion()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+    <div id="valorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 id="valorModalTitle">Ingresar Valor de Operación</h2></div>
+            <div class="modal-body">
+                <p>Para el expediente: <strong id="valorModalExpediente"></strong></p>
+                <div class="form-group"><label for="valorModalInput">Valor:</label><input type="text" id="valorModalInput" placeholder="$0.00"></div>
+            </div>
+            <div class="modal-footer" style="justify-content: flex-end;"><button class="btn-success" onclick="guardarValorActual()">Guardar y Continuar</button></div>
+        </div>
+    </div>
+
+    <script>
+// ===================================================================
+// =========== SCRIPT COMPLETO CON CORRECCIÓN DE FILTROS =============
+// ===================================================================
+
+let expedientes = [], bancos = [], estatus = [], historialEstatus = {}, activityLog = [];
+let distribucionAnioChart, tendenciaMensualChart, composicionEstatusChart, valorPorBancoChart, comparativaNotariasChart;
+let currentExpedienteId = null, expedientesParaValorizar = [], indiceValorActual = 0;
+
+const parsearMoneda = valor => {
+    if (typeof valor === 'number') return valor;
+    const cleanValue = String(valor).replace(/[$,\s]/g, '');
+    const parsedValue = parseFloat(cleanValue);
+    return isNaN(parsedValue) ? 0 : parsedValue;
+};
+
+const formatearMoneda = numero => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(parsearMoneda(numero));
+const mostrarNotificacion = (mensaje, tipo = 'success') => {
+    const n = document.getElementById('notification');
+    n.textContent = mensaje;
+    n.style.backgroundColor = { success: 'var(--success)', error: 'var(--danger)', warning: 'var(--warning)' }[tipo] || 'var(--success)';
+    n.style.display = 'block';
+    setTimeout(() => n.style.display = 'none', 3000);
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    cargarDatos();
+    inicializarSelectores();
+    configurarTabs();
+    mostrarExpedientes();
+
+    document.getElementById('searchInput').addEventListener('keyup', e => { if (e.key === 'Enter') mostrarExpedientes(); });
+    document.getElementById('valorModalInput').addEventListener('keyup', e => { if (e.key === 'Enter') guardarValorActual(); });
+    ['banco', 'estatus', 'month', 'year'].forEach(id => document.getElementById(id).addEventListener('change', mostrarExpedientes));
+    document.getElementById('new-banco-input').addEventListener('keyup', e => { if (e.key === 'Enter') gestionarConfiguracion('banco'); });
+    document.getElementById('new-estatus-input').addEventListener('keyup', e => { if (e.key === 'Enter') gestionarConfiguracion('estatus'); });
+});
+
+function cargarDatos() {
+    expedientes = JSON.parse(localStorage.getItem('expedientesData') || '[]');
+    bancos = JSON.parse(localStorage.getItem('bancosData') || '["BBVA", "BANAMEX", "SANTANDER", "HSBC", "SCOTIABANK"]');
+    estatus = JSON.parse(localStorage.getItem('estatusData') || '["EN FIRMA", "REGISTRO", "PENDIENTE", "RECOTIZADO", "URGENTE", "TERMINADO", "RECIBIDO", "FINALIZADO"]');
+    historialEstatus = JSON.parse(localStorage.getItem('historialData') || '{}');
+    activityLog = JSON.parse(localStorage.getItem('activityLogData') || '[]');
+}
+
+function guardarDatos() {
+    localStorage.setItem('expedientesData', JSON.stringify(expedientes));
+    localStorage.setItem('bancosData', JSON.stringify(bancos));
+    localStorage.setItem('estatusData', JSON.stringify(estatus));
+    localStorage.setItem('historialData', JSON.stringify(historialEstatus));
+    localStorage.setItem('activityLogData', JSON.stringify(activityLog));
+}
+
+function logActivity(description) {
+    activityLog.unshift({ timestamp: new Date().toLocaleString('es-MX'), description });
+    if (activityLog.length > 15) activityLog.pop();
+    guardarDatos();
+}
+
+function configurarTabs() {
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            const tabId = tab.getAttribute('data-tab');
+            const activeContent = document.getElementById(tabId);
+            activeContent.style.display = 'block';
+            if (tabId === 'expedientes') mostrarExpedientes();
+            else if (tabId === 'reporte-firmas') generarReporteFirmas();
+            else if (tabId === 'inventario-tramites') mostrarInventario();
+            else if (tabId === 'ajustes') cargarListasConfiguracion();
+            else if (tabId === 'analisis-avanzado') generarAnalisisAvanzado();
+            else if (tabId === 'herramientas') mostrarLogDeActividad();
+        });
+    });
+}
+
+function inicializarSelectores() {
+    const currentYear = new Date().getFullYear();
+    ['year', 'massive-year', 'archive-year'].forEach(id => {
+        const select = document.getElementById(id); if (!select) return;
+        const firstOption = select.options[0];
+        select.innerHTML = '';
+        if (firstOption) select.appendChild(firstOption);
+        for (let i = currentYear + 2; i >= currentYear - 10; i--) select.appendChild(new Option(i, i));
+    });
+    actualizarSelectores();
+}
+
+function actualizarSelectores() {
+    const sortedBancos = [...bancos].sort();
+    const sortedEstatus = [...estatus].sort();
+    ['banco', 'massive-banco', 'edit-banco'].forEach(id => {
+        const select = document.getElementById(id); if (!select) return;
+        const currentValue = select.value;
+        const firstOption = select.options[0];
+        select.innerHTML = '';
+        if (firstOption) select.appendChild(firstOption);
+        sortedBancos.forEach(b => select.appendChild(new Option(b, b)));
+        select.value = currentValue;
+    });
+    ['estatus', 'edit-estatus'].forEach(id => {
+        const select = document.getElementById(id); if (!select) return;
+        const currentValue = select.value;
+        const firstOption = select.options[0];
+        select.innerHTML = '';
+        if (firstOption) select.appendChild(firstOption);
+        sortedEstatus.forEach(e => select.appendChild(new Option(e, e)));
+        select.value = currentValue;
+    });
+}
+
+function gestionarConfiguracion(type) {
+    const inputId = `new-${type}-input`;
+    const inputElement = document.getElementById(inputId);
+    if (!inputElement) return mostrarNotificacion(`Error: No se encontró el campo de entrada`, 'error');
+    const newItem = inputElement.value.trim().toUpperCase();
+    if (!newItem) return mostrarNotificacion('El campo no puede estar vacío.', 'warning');
+    const targetArray = (type === 'banco') ? bancos : estatus;
+    const itemName = (type === 'banco') ? 'banco' : 'estatus';
+    if (targetArray.some(item => item.toUpperCase() === newItem)) {
+        return mostrarNotificacion(`El ${itemName} "${newItem}" ya existe.`, 'warning');
+    }
+    targetArray.push(newItem);
+    logActivity(`Añadió nuevo ${itemName}: ${newItem}`);
+    guardarDatos();
+    cargarListasConfiguracion();
+    actualizarSelectores();
+    inputElement.value = '';
+    mostrarNotificacion(`${itemName.charAt(0).toUpperCase() + itemName.slice(1)} añadido correctamente.`, 'success');
+}
+
+function cargarListasConfiguracion() {
+    const renderList = (type, dataArray) => {
+        const listDiv = document.getElementById(`${type}s-list`);
+        if (!listDiv) return;
+        listDiv.innerHTML = '';
+        [...dataArray].sort().forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'config-item';
+            div.innerHTML = `<span>${item}</span><button class="delete-btn" onclick="removeConfigItem('${type}', '${item}')">&times;</button>`;
+            listDiv.appendChild(div);
+        });
+    };
+    renderList('banco', bancos);
+    renderList('estatus', estatus);
+}
+
+function removeConfigItem(type, itemToRemove) {
+    if (!confirm(`¿Seguro que quieres eliminar "${itemToRemove}"?`)) return;
+    let targetArray = (type === 'banco') ? bancos : estatus;
+    const index = targetArray.findIndex(item => item === itemToRemove);
+    if (index > -1) {
+        targetArray.splice(index, 1);
+        logActivity(`Eliminó ${type}: ${itemToRemove}`);
+        guardarDatos();
+        cargarListasConfiguracion();
+        actualizarSelectores();
+        mostrarNotificacion(`${type.charAt(0).toUpperCase() + type.slice(1)} eliminado.`, 'success');
+    }
+}
+
+// --- FUNCIONES DE GESTIÓN ---
+
+function mostrarExpedientes() {
+    const tablaDiv = document.getElementById('tabla');
+    const searchInput = document.getElementById('searchInput').value.toLowerCase();
+    const selectedBanco = document.getElementById('banco').value;
+    const selectedEstatus = document.getElementById('estatus').value;
+    const selectedMonth = document.getElementById('month').value;
+    const selectedYear = document.getElementById('year').value;
+    
+    const filteredExpedientes = expedientes.filter(exp => {
+        // Filtrar por estado de finalización
+        if (exp.estatus === "FINALIZADO") return false;
+
+        // Filtrar por búsqueda de texto
+        if (searchInput && !(exp.numero?.toLowerCase().includes(searchInput) || (exp.banco && exp.banco.toLowerCase().includes(searchInput)))) {
+            return false;
+        }
+
+        // Filtrar por banco y estatus
+        if (selectedBanco && exp.banco !== selectedBanco) return false;
+        if (selectedEstatus && exp.estatus !== selectedEstatus) return false;
+        
+        // **CORRECCIÓN 1: Filtro de fecha más flexible**
+        // Aplicar filtro de año y mes SÓLO si están seleccionados
+        if (selectedYear || selectedMonth) {
+            if (!exp.fecha) return false; // El expediente DEBE tener fecha si el filtro de fecha está activo
+
+            const [expYear, expMonth] = exp.fecha.split('-');
+            const formattedSelectedMonth = String(selectedMonth).padStart(2, '0');
+
+            if (selectedYear && expYear !== selectedYear) return false;
+            if (selectedMonth && expMonth !== formattedSelectedMonth) return false;
+        }
+
+        return true;
+    }).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+    if (filteredExpedientes.length === 0) {
+        tablaDiv.innerHTML = '<div style="text-align:center; padding: 2rem; color: var(--text-light);">No hay expedientes que coincidan con los filtros.</div>'; return;
+    }
+    
+    const tabla = document.createElement('table');
+    tabla.innerHTML = `<thead><tr><th>Expediente</th><th>Banco</th><th>Estatus</th><th>Notaría</th><th>Fecha</th><th>Valor</th><th>Acciones</th></tr></thead>`;
+    const tbody = document.createElement('tbody');
+    
+    filteredExpedientes.forEach(exp => {
+        const tr = tbody.insertRow();
+        tr.className = exp.estatus === "URGENTE" ? 'urgente-row' : (exp.estatus === "RECOTIZADO" ? 'recotizado-row' : '');
+        tr.innerHTML = `<td>${exp.numero}</td><td>${exp.banco || 'N/A'}</td><td>${exp.estatus || 'N/A'}</td><td>${exp.notaria === "notaria27" ? "Notaría 27" : "Notaría 30"}</td><td>${exp.fecha || 'N/A'}</td><td class="money-value">${formatearMoneda(exp.valor)}</td><td></td>`;
+        const btnEditar = document.createElement('button');
+        btnEditar.textContent = 'Editar'; btnEditar.className = 'btn-primary';
+        btnEditar.style.cssText = 'padding: 4px 8px; width: auto;';
+        btnEditar.onclick = () => editarExpediente(exp.id);
+        tr.cells[6].appendChild(btnEditar);
+    });
+    
+    tabla.appendChild(tbody);
+    tablaDiv.innerHTML = ''; tablaDiv.appendChild(tabla);
+}
+
+function limpiarFiltros() {
+    document.getElementById('searchInput').value = ''; document.getElementById('banco').value = '';
+    document.getElementById('estatus').value = ''; document.getElementById('month').value = '';
+    document.getElementById('year').value = ''; mostrarExpedientes();
+}
+
+function procesarLista() {
+    const listaText = document.getElementById('lista').value.trim();
+    if (!listaText) return mostrarNotificacion('La lista está vacía.', 'error');
+
+    const selectedBanco = document.getElementById('banco').value;
+    const selectedEstatus = document.getElementById('estatus').value;
+    const selectedYear = document.getElementById('year').value;
+    const selectedMonth = document.getElementById('month').value;
+
+    const numeros = listaText.split('\n').map(n => n.trim()).filter(Boolean);
+    let agregados = 0, actualizados = 0;
+    expedientesParaValorizar = [];
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+    
+    numeros.forEach(num => {
+        const expIndex = expedientes.findIndex(e => e.numero.toLowerCase() === num.toLowerCase());
+        let expedienteProcesado = null;
+        
+        // 1. Expediente EXISTENTE
+        if (expIndex !== -1) {
+            expedienteProcesado = expedientes[expIndex];
+            if (selectedBanco) expedienteProcesado.banco = selectedBanco;
+            
+            // Actualizar estatus y registrar en historial
+            if (selectedEstatus && expedienteProcesado.estatus !== selectedEstatus) {
+                expedienteProcesado.estatus = selectedEstatus;
+                if (!historialEstatus[expedienteProcesado.id]) historialEstatus[expedienteProcesado.id] = [];
+                historialEstatus[expedienteProcesado.id].push({ estatus: expedienteProcesado.estatus, fecha: new Date().toLocaleDateString('es-MX') });
+            }
+            
+            // Actualizar fecha
+            if (selectedYear && selectedMonth) {
+                expedienteProcesado.fecha = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+            }
+            actualizados++;
+
+        // 2. Expediente NUEVO
+        } else {
+            // **CORRECCIÓN 2: Asignar fecha actual si no se selecciona Mes/Año**
+            const fechaExpediente = (selectedYear && selectedMonth) 
+                ? `${selectedYear}-${String(selectedMonth).padStart(2, '0')}` 
+                : `${currentYear}-${currentMonth}`; // Asigna fecha actual si falta
+                
+            const ultimaLetra = num.slice(-1).toUpperCase();
+            expedienteProcesado = { 
+                id: 'id_' + Date.now() + Math.random(), 
+                numero: num, 
+                banco: selectedBanco || '', 
+                estatus: selectedEstatus || 'PENDIENTE', 
+                notaria: ultimaLetra === 'A' ? 'notaria27' : (ultimaLetra === 'B' ? 'notaria30' : 'notaria30'), 
+                fecha: fechaExpediente, 
+                valor: 0 
+            };
+            expedientes.push(expedienteProcesado);
+            historialEstatus[expedienteProcesado.id] = [{ estatus: expedienteProcesado.estatus, fecha: new Date().toLocaleDateString('es-MX') }];
+            agregados++;
+        }
+
+        // Lógica de valorización (mantenida)
+        if (expedienteProcesado && (expedienteProcesado.estatus === 'URGENTE' || expedienteProcesado.estatus === 'RECOTIZADO') && parsearMoneda(expedienteProcesado.valor) === 0) {
+            expedientesParaValorizar.push(expedienteProcesado);
+        }
+    });
+
+    logActivity(`Procesó lista: ${agregados} agregados, ${actualizados} actualizados.`);
+
+    if (expedientesParaValorizar.length > 0) {
+        indiceValorActual = 0;
+        solicitarSiguienteValor();
+    } else {
+        guardarDatos(); 
+        mostrarExpedientes();
+        mostrarNotificacion(`${agregados} expedientes agregados, ${actualizados} actualizados.`, 'success');
+        document.getElementById('lista').value = '';
+    }
+}
+
+function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; }
+function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
+function editarExpediente(id) {
+    currentExpedienteId = id;
+    const exp = expedientes.find(e => e.id === id); if (!exp) return;
+    document.getElementById('edit-numero').value = exp.numero;
+    document.getElementById('edit-banco').value = exp.banco || '';
+    document.getElementById('edit-estatus').value = exp.estatus || '';
+    document.getElementById('edit-notaria').value = exp.notaria || 'notaria27';
+    document.getElementById('edit-fecha').value = exp.fecha || '';
+    document.getElementById('edit-valor').value = formatearMoneda(exp.valor);
+    const historialDiv = document.getElementById('edit-historial');
+    historialDiv.innerHTML = (historialEstatus[exp.id] || []).map(h => `<p style="margin:0;">${h.fecha}: ${h.estatus}</p>`).join('') || 'Sin historial.';
+    openModal('editExpedienteModal');
+}
+function guardarEdicion() {
+    if (!currentExpedienteId) return;
+    const expIndex = expedientes.findIndex(e => e.id === currentExpedienteId);
+    if (expIndex === -1) return mostrarNotificacion('Error: Expediente no encontrado.', 'error');
+    const exp = expedientes[expIndex];
+    const oldEstatus = exp.estatus;
+    exp.banco = document.getElementById('edit-banco').value;
+    exp.estatus = document.getElementById('edit-estatus').value;
+    exp.notaria = document.getElementById('edit-notaria').value;
+    exp.fecha = document.getElementById('edit-fecha').value;
+    exp.valor = parsearMoneda(document.getElementById('edit-valor').value);
+    if (oldEstatus !== exp.estatus) {
+        if (!historialEstatus[exp.id]) historialEstatus[exp.id] = [];
+        historialEstatus[exp.id].push({ estatus: exp.estatus, fecha: new Date().toLocaleDateString('es-MX') });
+    }
+    guardarDatos();
+    mostrarExpedientes();
+    closeModal('editExpedienteModal');
+    mostrarNotificacion('Expediente actualizado.', 'success');
+}
+function eliminarExpediente() {
+    if (!currentExpedienteId || !confirm('¿Seguro que quieres eliminar este expediente?')) return;
+    const expEliminado = expedientes.find(e => e.id === currentExpedienteId);
+    logActivity(`Eliminó expediente: ${expEliminado?.numero || 'ID desconocido'}`);
+    expedientes = expedientes.filter(exp => exp.id !== currentExpedienteId);
+    delete historialEstatus[currentExpedienteId];
+    guardarDatos();
+    mostrarExpedientes();
+    closeModal('editExpedienteModal');
+    mostrarNotificacion('Expediente eliminado.', 'success');
+}
+function solicitarSiguienteValor() {
+    if (indiceValorActual < expedientesParaValorizar.length) {
+        const exp = expedientesParaValorizar[indiceValorActual];
+        document.getElementById('valorModalExpediente').textContent = exp.numero;
+        document.getElementById('valorModalInput').value = exp.valor > 0 ? formatearMoneda(exp.valor) : '';
+        openModal('valorModal');
+        document.getElementById('valorModalInput').focus();
+    } else {
+        guardarDatos(); mostrarExpedientes();
+        mostrarNotificacion('Todos los expedientes han sido procesados y valorizados.', 'success');
+        document.getElementById('lista').value = '';
+    }
+}
+function guardarValorActual() {
+    const expActual = expedientesParaValorizar[indiceValorActual];
+    const valorInput = document.getElementById('valorModalInput').value;
+    const valorNumerico = parsearMoneda(valorInput);
+    if (isNaN(valorNumerico)) return mostrarNotificacion('Por favor, ingrese un valor numérico válido.', 'error');
+    const expIndex = expedientes.findIndex(e => e.id === expActual.id);
+    if (expIndex !== -1) expedientes[expIndex].valor = valorNumerico;
+    indiceValorActual++;
+    closeModal('valorModal');
+    solicitarSiguienteValor();
+}
+function marcarMesComoUrgente() {
+    const month = document.getElementById('massive-month').value; const year = document.getElementById('massive-year').value;
+    if (!month || !year) return mostrarNotificacion('Seleccione mes y año.', 'error');
+    if (!confirm(`¿Marcar TODOS los expedientes de ${month}/${year} como "URGENTE"?`)) return;
+    let count = 0; const fechaFiltro = `${year}-${String(month).padStart(2, '0')}`;
+    expedientes.forEach(exp => { if (exp.fecha === fechaFiltro) { exp.estatus = 'URGENTE'; count++; } });
+    if (count > 0) {
+        logActivity(`Marcó ${count} expedientes de ${fechaFiltro} como URGENTE.`);
+        guardarDatos(); mostrarExpedientes();
+        mostrarNotificacion(`${count} expedientes actualizados.`, 'success');
+    } else { mostrarNotificacion('No se encontraron expedientes en esa fecha.', 'warning'); }
+}
+function marcarBancoComoUrgente() {
+    const banco = document.getElementById('massive-banco').value;
+    if (!banco) return mostrarNotificacion('Seleccione un banco.', 'error');
+    if (!confirm(`¿Marcar TODOS los expedientes de ${banco} como "URGENTE"?`)) return;
+    let count = 0;
+    expedientes.forEach(exp => { if (exp.banco === banco) { exp.estatus = 'URGENTE'; count++; } });
+    if (count > 0) {
+        logActivity(`Marcó ${count} expedientes de ${banco} como URGENTE.`);
+        guardarDatos(); mostrarExpedientes();
+        mostrarNotificacion(`${count} expedientes actualizados.`, 'success');
+    } else { mostrarNotificacion(`No se encontraron expedientes para ${banco}.`, 'warning'); }
+}
+function mostrarInventario() {
+    const tablaDiv = document.getElementById('inventario-tabla');
+    const expedientesRelevantes = expedientes.filter(exp => ["URGENTE", "RECOTIZADO"].includes(exp.estatus) && exp.estatus !== "FINALIZADO");
+    if (expedientesRelevantes.length === 0) {
+        tablaDiv.innerHTML = '<div style="text-align:center; padding: 2rem; color: var(--text-light);">No hay expedientes urgentes o recotizados.</div>'; return;
+    }
+    const expedientesPorBanco = expedientesRelevantes.reduce((acc, exp) => {
+        const banco = exp.banco || 'Sin Asignar';
+        if (!acc[banco]) acc[banco] = [];
+        acc[banco].push(exp);
+        return acc;
+    }, {});
+    tablaDiv.innerHTML = '';
+    Object.keys(expedientesPorBanco).sort().forEach(banco => {
+        const section = document.createElement('div'); section.className = 'inventario-banco-section';
+        section.innerHTML = `<h3>${banco}</h3>`;
+        const tabla = document.createElement('table');
+        tabla.innerHTML = `<thead><tr><th>Expediente</th><th>Fecha</th><th>Valor</th></tr></thead>`;
+        const tbody = document.createElement('tbody');
+        expedientesPorBanco[banco].sort((a,b) => new Date(a.fecha) - new Date(b.fecha)).forEach(exp => {
+            const tr = tbody.insertRow();
+            tr.className = exp.estatus === "URGENTE" ? 'urgente-row' : 'recotizado-row';
+            tr.innerHTML = `<td>${exp.numero}</td><td>${exp.fecha}</td><td class="money-value">${formatearMoneda(exp.valor)}</td>`;
+            tr.onclick = () => editarExpediente(exp.id);
+            tbody.appendChild(tr);
+        });
+        tabla.appendChild(tbody); section.appendChild(tabla); tablaDiv.appendChild(section);
+    });
+}
+function importarDatos() {
+    const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+    input.onchange = e => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = event => {
+            try {
+                const data = JSON.parse(event.target.result);
+                if (data.expedientes && data.bancos && data.estatus) {
+                    if (confirm('Esto reemplazará todos los datos actuales. ¿Desea continuar?')) {
+                        expedientes = data.expedientes; bancos = data.bancos; estatus = data.estatus;
+                        historialEstatus = data.historialEstatus || {}; activityLog = data.activityLog || [];
+                        logActivity('Importó un nuevo archivo de datos.'); guardarDatos(); location.reload();
+                    }
+                } else { mostrarNotificacion('El archivo no tiene el formato correcto.', 'error'); }
+            } catch (err) { mostrarNotificacion('Error al leer el archivo.', 'error'); }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+function exportarDatos() {
+    logActivity('Exportó los datos a un archivo JSON.');
+    const data = JSON.stringify({ expedientes, bancos, estatus, historialEstatus, activityLog });
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `inventario_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click(); URL.revokeObjectURL(url);
+    mostrarNotificacion('Datos exportados.', 'success');
+}
+function borrarTodo() {
+    const pass = prompt('Esta acción es irreversible. Ingrese "1234" para continuar:');
+    if (pass === '1234') {
+        if (confirm('ADVERTENCIA FINAL: ¿Está absolutamente seguro de que desea borrar todos los datos?')) {
+            logActivity('BORRÓ TODOS LOS DATOS DEL SISTEMA.');
+            localStorage.clear(); location.reload();
+        }
+    } else if (pass !== null) { mostrarNotificacion('Contraseña incorrecta.', 'error'); }
+}
+function generarReporteFirmas() {
+    // Para el reporte de firmas/recibidos, el filtro debe ser más específico
+    const expedientesActivos = expedientes.filter(exp => 
+        (exp.estatus === 'RECIBIDO' || exp.estatus === 'EN FIRMA') && exp.estatus !== 'FINALIZADO'
+    );
+    const totalExp = expedientesActivos.length;
+    const totalValor = expedientesActivos.reduce((sum, exp) => sum + parsearMoneda(exp.valor), 0);
+    document.getElementById('firmas-counters').innerHTML = `<div class="counter-card total"><div class="counter-title">Expedientes Activos</div><div class="counter-value">${totalExp}</div></div><div class="counter-card total"><div class="counter-title">Valor Activo</div><div class="counter-value">${formatearMoneda(totalValor)}</div></div>`;
+    const porBanco = bancos.reduce((acc, b) => ({ ...acc, [b]: 0 }), {});
+    expedientesActivos.forEach(exp => { if(porBanco.hasOwnProperty(exp.banco)) porBanco[exp.banco] += parsearMoneda(exp.valor); });
+    const ctx = document.getElementById('distribucionAnioChart').getContext('2d');
+    if (distribucionAnioChart) distribucionAnioChart.destroy();
+    distribucionAnioChart = new Chart(ctx, { type: 'doughnut', data: { labels: Object.keys(porBanco), datasets: [{ data: Object.values(porBanco), backgroundColor: ['#4285F4', '#DB4437', '#F4B400', '#0F9D58', '#673AB7', '#9C27B0', '#00BCD4'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'Valor de Expedientes Recibidos/En Firma por Banco' } } } });
+}
+function generarAnalisisAvanzado() {
+    const expedientesNoFinalizados = expedientes.filter(exp => exp.estatus !== "FINALIZADO");
+    if (expedientesNoFinalizados.length === 0) { document.getElementById('kpi-counters').innerHTML = '<p>No hay datos suficientes para generar análisis.</p>'; return; };
+    const kpiContainer = document.getElementById('kpi-counters');
+    const totalValor = expedientesNoFinalizados.reduce((sum, exp) => sum + parsearMoneda(exp.valor), 0);
+    const avgValor = expedientesNoFinalizados.length > 0 ? totalValor / expedientesNoFinalizados.length : 0;
+    const maxValorExp = expedientesNoFinalizados.reduce((max, exp) => exp.valor > max.valor ? exp : max, {valor: -1, numero: 'N/A'});
+    const valorPorBanco = expedientesNoFinalizados.reduce((acc, exp) => { const banco = exp.banco || 'Sin Banco'; acc[banco] = (acc[banco] || 0) + parsearMoneda(exp.valor); return acc; }, {});
+    const bancoMasValioso = Object.keys(valorPorBanco).reduce((a, b) => valorPorBanco[a] > valorPorBanco[b] ? a : b, 'N/A');
+    kpiContainer.innerHTML = `<div class="counter-card success"><div class="counter-title">Valor Prom./Expediente</div><div class="counter-value">${formatearMoneda(avgValor)}</div></div><div class="counter-card warning"><div class="counter-title">Expediente de Mayor Valor</div><div class="counter-value-small">${maxValorExp.numero} (${formatearMoneda(maxValorExp.valor)})</div></div><div class="counter-card total"><div class="counter-title">Banco con Mayor Capital</div><div class="counter-value-small">${bancoMasValioso}</div></div>`;
+    const ctxValorBanco = document.getElementById('valorPorBancoChart').getContext('2d');
+    if (valorPorBancoChart) valorPorBancoChart.destroy();
+    valorPorBancoChart = new Chart(ctxValorBanco, { type: 'bar', data: { labels: Object.keys(valorPorBanco), datasets: [{ label: 'Valor Total Acumulado', data: Object.values(valorPorBanco), backgroundColor: '#34A853' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'Valor Total por Banco', font: { size: 16 } } } } });
+    const porNotaria = expedientesNoFinalizados.reduce((acc, exp) => { const notaria = exp.notaria === 'notaria27' ? 'Notaría 27' : 'Notaría 30'; acc[notaria] = (acc[notaria] || 0) + 1; return acc; }, {});
+    const ctxNotarias = document.getElementById('comparativaNotariasChart').getContext('2d');
+    if (comparativaNotariasChart) comparativaNotariasChart.destroy();
+    comparativaNotariasChart = new Chart(ctxNotarias, { type: 'pie', data: { labels: Object.keys(porNotaria), datasets: [{ data: Object.values(porNotaria), backgroundColor: ['#4285F4', '#f59e0b'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'Distribución de Expedientes por Notaría', font: { size: 16 } } } } });
+    const porMes = expedientesNoFinalizados.reduce((acc, exp) => { if (!exp.fecha) return acc; const mesAnio = exp.fecha.substring(0, 7); acc[mesAnio] = (acc[mesAnio] || 0) + 1; return acc; }, {});
+    const labelsMes = Object.keys(porMes).sort();
+    const dataMes = labelsMes.map(key => porMes[key]);
+    const ctxTendencia = document.getElementById('tendenciaMensualChart').getContext('2d');
+    if (tendenciaMensualChart) tendenciaMensualChart.destroy();
+    tendenciaMensualChart = new Chart(ctxTendencia, { type: 'line', data: { labels: labelsMes, datasets: [{ label: 'Expedientes por Mes', data: dataMes, borderColor: 'var(--gemini-blue)', fill: true, tension: 0.1 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'Tendencia de Expedientes por Mes', font: { size: 16 } } } }});
+    const porEstatus = estatus.reduce((acc, e) => ({ ...acc, [e]: 0 }), {});
+    expedientesNoFinalizados.forEach(exp => { if(porEstatus.hasOwnProperty(exp.estatus)) porEstatus[exp.estatus]++; });
+    const ctxComposicion = document.getElementById('composicionEstatusChart').getContext('2d');
+    if (composicionEstatusChart) composicionEstatusChart.destroy();
+    composicionEstatusChart = new Chart(ctxComposicion, { type: 'pie', data: { labels: Object.keys(porEstatus), datasets: [{ data: Object.values(porEstatus), backgroundColor: ['#0F9D58', '#F4B400', '#64748b', '#ef4444', '#DB4437', '#4285F4', '#3399ff', '#888888'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'Composición por Estatus', font: { size: 16 } } } }});
+}
+function buscarDuplicados() {
+    const resultadoDiv = document.getElementById('calidad-resultado');
+    resultadoDiv.innerHTML = '';
+    const conteo = expedientes.reduce((acc, exp) => { const num = exp.numero.toLowerCase().trim(); acc[num] = (acc[num] || 0) + 1; return acc; }, {});
+    const duplicados = Object.keys(conteo).filter(num => conteo[num] > 1);
+    if (duplicados.length === 0) { resultadoDiv.innerHTML = '<div class="config-item"><span>✅ No se encontraron expedientes duplicados.</span></div>'; return; }
+    duplicados.forEach(num => { const div = document.createElement('div'); div.className = 'config-item'; div.style.backgroundColor = '#fee2e2'; div.innerHTML = `<span><strong>DUPLICADO: ${num.toUpperCase()}</strong> (${conteo[num]} veces)</span>`; resultadoDiv.appendChild(div); });
+    mostrarNotificacion(`Se encontraron ${duplicados.length} números de expediente duplicados.`, 'warning');
+}
+function buscarIncompletos() {
+    const resultadoDiv = document.getElementById('calidad-resultado');
+    resultadoDiv.innerHTML = '';
+    const incompletos = expedientes.filter(exp => !exp.banco || parsearMoneda(exp.valor) === 0);
+    if (incompletos.length === 0) { resultadoDiv.innerHTML = '<div class="config-item"><span>✅ Todos los expedientes parecen estar completos.</span></div>'; return; }
+    incompletos.forEach(exp => { const motivo = !exp.banco ? 'Falta Banco' : 'Valor es $0.00'; const div = document.createElement('div'); div.className = 'config-item'; div.style.backgroundColor = '#fef9c3'; div.innerHTML = `<span><strong>${exp.numero}</strong> - ${motivo} (Fecha: ${exp.fecha})</span>`; resultadoDiv.appendChild(div); });
+    mostrarNotificacion(`Se encontraron ${incompletos.length} expedientes incompletos.`, 'warning');
+}
+function archivarMasivamente() {
+    const month = document.getElementById('archive-month').value; const year = document.getElementById('archive-year').value;
+    if (!month || !year) return mostrarNotificacion('Seleccione mes y año para archivar.', 'error');
+    const fechaFiltro = `${year}-${String(month).padStart(2, '0')}`;
+    const paraArchivar = expedientes.filter(exp => exp.fecha === fechaFiltro && exp.estatus !== 'FINALIZADO').length;
+    if (paraArchivar === 0) return mostrarNotificacion('No hay expedientes para archivar en esa fecha.', 'warning');
+    if (!confirm(`Se marcarán ${paraArchivar} expedientes de ${fechaFiltro} como "FINALIZADO". ¿Desea continuar?`)) return;
+    let count = 0;
+    expedientes.forEach(exp => { if (exp.fecha === fechaFiltro && exp.estatus !== 'FINALIZADO') { exp.estatus = 'FINALIZADO'; count++; } });
+    logActivity(`Archivó ${count} expedientes de ${fechaFiltro}.`);
+    guardarDatos(); mostrarExpedientes();
+    mostrarNotificacion(`${count} expedientes han sido archivados.`, 'success');
+}
+function mostrarLogDeActividad() {
+    const logDiv = document.getElementById('activity-log-list');
+    if (!logDiv) return;
+    logDiv.innerHTML = '';
+    if (activityLog.length === 0) {
+        logDiv.innerHTML = '<div class="config-item"><span>No hay actividad reciente.</span></div>';
+    } else {
+        activityLog.forEach(log => {
+            const div = document.createElement('div');
+            div.className = 'config-item log-item';
+            div.innerHTML = `<strong>${log.timestamp}:</strong> ${log.description}`;
+            logDiv.appendChild(div);
+        });
+    }
+}
+// =================================================================
+// >>>>>>>>> FUNCIÓN CORREGIDA para Reporte de Firmas/Recibidos <<<<<<<<<<
+// =================================================================
+function exportarReporteFirmasPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'pt', 'letter');
+
+    // Mapeo de meses a nombre en español
+    const monthNames = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
+    const currentYear = new Date().getFullYear();
+
+    // 1. Filtrar expedientes: AHORA SOLO POR RECIBIDO O EN FIRMA
+    const expedientesParaRecotizar = expedientes.filter(exp => 
+        // Filtra solo si el estatus es RECIBIDO o EN FIRMA y no ha sido FINALIZADO
+        ["RECIBIDO", "EN FIRMA"].includes(exp.estatus) && exp.estatus !== "FINALIZADO"
+    );
+
+    if (expedientesParaRecotizar.length === 0) {
+        return mostrarNotificacion("No hay expedientes RECIBIDOS/EN FIRMA para este reporte.", "warning");
+    }
+
+    // 2. Agrupar por Banco
+    const expedientesPorBanco = expedientesParaRecotizar.reduce((acc, exp) => {
+        const banco = exp.banco || 'SIN BANCO ASIGNADO';
+        if (!acc[banco]) acc[banco] = [];
+        acc[banco].push(exp);
+        return acc;
+    }, {});
+
+    // 3. Preparar los datos para el PDF y ordenar por fecha (Antiguo a Reciente)
+    const bancosParaPdf = Object.keys(expedientesPorBanco).map(banco => {
+        const records = expedientesPorBanco[banco]
+            .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+            .map(exp => {
+                let mesStr = String(currentYear); // Valor por defecto: año actual
+                if (exp.fecha && exp.fecha.includes('-')) {
+                    const parts = exp.fecha.split('-');
+                    const year = parts[0];
+                    const month = parseInt(parts[1], 10);
+                    if (month >= 1 && month <= 12) {
+                        mesStr = monthNames[month - 1] + '/' + year.toString().slice(-2);
+                    }
+                }
+                return [exp.numero, mesStr];
+            });
+        
+        // Estimar altura de la tabla para el empaquetado en columnas
+        const estimatedHeight = 20 + (records.length * 15) + 20;    
+        
+        return { banco, records, estimatedHeight };
+    }).sort((a, b) => a.banco.localeCompare(b.banco)); // Ordenar bancos alfabéticamente
+
+    // --- Constantes de Diseño y Configuración de 3 Columnas ---
+    const PAGE_WIDTH = doc.internal.pageSize.getWidth();
+    const MARGIN = 40;
+    const PAGE_BOTTOM = doc.internal.pageSize.getHeight() - MARGIN;
+    // Cálculo para 3 columnas: (Ancho total - 4 márgenes) / 3
+    const COLUMN_WIDTH = (PAGE_WIDTH - (MARGIN * 4)) / 3;    
+    const X_COORDS = [MARGIN, MARGIN * 2 + COLUMN_WIDTH, MARGIN * 3 + COLUMN_WIDTH * 2];
+    const Y_START = 80;
+    const PADDING_BETWEEN_TABLES = 15;
+    
+    let columnY = [Y_START, Y_START, Y_START];
+    let pageCount = 1;
+
+    const addHeaderAndFooter = (doc, totalPages) => {
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(16); doc.setFont(undefined, 'bold');
+            // Título Modificado para reflejar los estatus correctos
+            doc.text("Reporte de Expedientes Recibidos/En Firma", PAGE_WIDTH / 2, MARGIN, { align: 'center' });
+            doc.setFontSize(10); doc.setFont(undefined, 'normal');
+            doc.text(`Generado el: ${new Date().toLocaleDateString('es-MX')}`, PAGE_WIDTH / 2, MARGIN + 15, { align: 'center' });
+            doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH / 2, PAGE_BOTTOM + 15, { align: 'center' });
+        }
+    };
+    
+    // 4. Iterar sobre la lista ordenada y colocar las tablas en 3 columnas
+    for (const { banco, records, estimatedHeight } of bancosParaPdf) {
+        if (records.length === 0) continue;
+
+        // Lógica para determinar la columna con la menor altura (más espacio disponible)
+        let targetColumnIndex = 0;
+        if (columnY[1] < columnY[0] && columnY[1] <= columnY[2]) {
+            targetColumnIndex = 1;
+        } else if (columnY[2] < columnY[0] && columnY[2] < columnY[1]) {
+            targetColumnIndex = 2;
+        } else if (columnY[1] === columnY[0] && columnY[2] < columnY[0]) {
+            targetColumnIndex = 2;
+        } else if (columnY[2] === columnY[0] && columnY[1] < columnY[0]) {
+            targetColumnIndex = 1;
+        }
+        
+        // 4.2. Comprobar si hay espacio en la columna objetivo
+        if (columnY[targetColumnIndex] + estimatedHeight > PAGE_BOTTOM) {
+            // Intenta encontrar otra columna disponible
+            let newTargetIndex = -1;
+            for (let i = 0; i < columnY.length; i++) {
+                if (i !== targetColumnIndex && columnY[i] + estimatedHeight <= PAGE_BOTTOM) {
+                    newTargetIndex = i;
+                    break;
+                }
+            }
+            
+            // 4.3. Si NO se encuentra espacio en ninguna columna, añadir nueva página
+            if (newTargetIndex === -1) {
+                doc.addPage();
+                pageCount++;
+                columnY = [Y_START, Y_START, Y_START];
+                targetColumnIndex = 0; // Reiniciar a la primera columna
+            } else {
+                targetColumnIndex = newTargetIndex;
+            }
+        }
+
+        const currentX = X_COORDS[targetColumnIndex];
+        const currentY = columnY[targetColumnIndex];
+        
+        // 4.4. Dibujar Título del Banco
+        doc.setFontSize(10); doc.setFont(undefined, 'bold');
+        doc.text(banco.toUpperCase(), currentX + COLUMN_WIDTH / 2, currentY, { align: 'center' });
+
+        // 4.5. Dibujar Tabla
+        doc.autoTable({
+            head: [['Expediente', 'Mes']], // Solo Expediente y Mes
+            body: records,    
+            startY: currentY + 5,    
+            margin: { left: currentX },    
+            tableWidth: COLUMN_WIDTH,
+            theme: 'grid',    
+            styles: { halign: 'center', fontSize: 8 },
+            headStyles: { fillColor: [220, 220, 220], textColor: 40, fontStyle: 'bold' },
+            // NO SE AGREGAN FOOTERS
+        });
+
+        // 4.6. Actualizar la posición Y para la columna utilizada
+        columnY[targetColumnIndex] = doc.autoTable.previous.finalY + PADDING_BETWEEN_TABLES;
+    }
+    
+    // 5. Agregar Encabezado y Pie de página al final
+    addHeaderAndFooter(doc, pageCount);
+    
+    // Nombre del archivo modificado
+    doc.save(`Reporte_Recibidos_En_Firma_${new Date().toISOString().slice(0,10)}.pdf`);
+    logActivity('Exportó el reporte de expedientes recibidos/en firma a PDF.');
+}
+// =================================================================
+// >>>>>>>>> FUNCIÓN CORRECTA para Inventario de Trámites (URGENTE/RECOTIZADO) <<<<<<<<<<
+// =================================================================
+async function exportarPDF(tabId) {
+    if (tabId !== 'inventario-tramites') {
+        return mostrarNotificacion('Esta función es para el Inventario de Trámites.', 'warning');
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'pt', 'letter');
+
+    // PASO 1: Filtrar y agrupar los datos relevantes (URGENTE/RECOTIZADO)
+    const expedientesRelevantes = expedientes.filter(exp => ["URGENTE", "RECOTIZADO"].includes(exp.estatus) && exp.estatus !== "FINALIZADO");
+    if (expedientesRelevantes.length === 0) return mostrarNotificacion("No hay datos para exportar.", "warning");
+
+    const expedientesPorBanco = expedientesRelevantes.reduce((acc, exp) => {
+        const banco = exp.banco || 'Sin Asignar';
+        if (!acc[banco]) acc[banco] = [];
+        acc[banco].push(exp);
+        return acc;
+    }, {});
+
+    // --- Constantes de Diseño y Estimación ---
+    const PAGE_WIDTH = doc.internal.pageSize.getWidth();
+    const MARGIN = 40;
+    const PAGE_BOTTOM = doc.internal.pageSize.getHeight() - MARGIN;
+    const COLUMN_WIDTH = (PAGE_WIDTH - MARGIN * 3) / 2;
+    const X_COORDS = [MARGIN, MARGIN * 2 + COLUMN_WIDTH];
+    const Y_START = 80;
+    const TITLE_HEIGHT = 20;
+    const ROW_HEIGHT = 15;
+    const PADDING_BETWEEN_TABLES = 20;
+
+    // PASO 2: Medir y preparar los bancos para ordenar
+    const bancosParaPdf = Object.keys(expedientesPorBanco).map(banco => {
+        const records = expedientesPorBanco[banco].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        const estimatedHeight = TITLE_HEIGHT + (records.length + 2) * ROW_HEIGHT + PADDING_BETWEEN_TABLES;
+        return { banco, records, estimatedHeight };
+    });
+
+    // PASO 3: Ordenar los bancos por tamaño (el más pequeño primero) para un mejor empaquetado
+    bancosParaPdf.sort((a, b) => a.estimatedHeight - b.estimatedHeight);
+
+    let columnY = [Y_START, Y_START];
+    let pageCount = 1;
+
+    const addHeaderAndFooter = (doc, totalPages) => {
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(16); doc.setFont(undefined, 'bold');
+            doc.text("Reporte de Trámites Pendientes", PAGE_WIDTH / 2, MARGIN, { align: 'center' });
+            doc.setFontSize(10); doc.setFont(undefined, 'normal');
+            doc.text(`Generado el: ${new Date().toLocaleDateString('es-MX')}`, PAGE_WIDTH / 2, MARGIN + 15, { align: 'center' });
+            doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH / 2, PAGE_BOTTOM + 15, { align: 'center' });
+        }
+    };
+
+    // PASO 4: Iterar sobre la lista ordenada y colocar las tablas
+    for (const { banco, records, estimatedHeight } of bancosParaPdf) {
+        const totalValor = records.reduce((sum, exp) => sum + parsearMoneda(exp.valor), 0);
+        const tableBody = records.map(exp => [exp.numero, exp.fecha, formatearMoneda(exp.valor)]);
+        const tableFoot = [[{ content: `TOTAL ${banco.toUpperCase()}`, colSpan: 2, styles: { halign: 'center', fontStyle: 'bold' } }, { content: formatearMoneda(totalValor), styles: { halign: 'center', fontStyle: 'bold' } }]];
+
+        let targetColumnIndex = columnY[0] <= columnY[1] ? 0 : 1;
+
+        if (columnY[targetColumnIndex] + estimatedHeight > PAGE_BOTTOM) {
+            let otherColumnIndex = 1 - targetColumnIndex;
+            if (columnY[otherColumnIndex] + estimatedHeight > PAGE_BOTTOM) {
+                doc.addPage();
+                pageCount++;
+                columnY = [Y_START, Y_START];
+                targetColumnIndex = 0;
+            } else {
+                targetColumnIndex = otherColumnIndex;
+            }
+        }
+
+        const currentX = X_COORDS[targetColumnIndex];
+        const currentY = columnY[targetColumnIndex];
+
+        doc.setFontSize(10); doc.setFont(undefined, 'bold');
+        doc.text(banco.toUpperCase(), currentX + COLUMN_WIDTH / 2, currentY, { align: 'center' });
+        doc.autoTable({
+            head: [['Expediente', 'Fecha', 'Valor']], body: tableBody, foot: tableFoot,
+            startY: currentY + 5, margin: { left: currentX }, tableWidth: COLUMN_WIDTH,
+            theme: 'grid', styles: { halign: 'center', fontSize: 8 },
+            headStyles: { fillColor: [220, 220, 220], textColor: 40, fontStyle: 'bold' },
+            footStyles: { fillColor: [240, 240, 240], textColor: 40 }
+        });
+        columnY[targetColumnIndex] = doc.autoTable.previous.finalY + PADDING_BETWEEN_TABLES;
+    }
+
+    addHeaderAndFooter(doc, pageCount);
+    doc.save(`Reporte_Inventario_${new Date().toISOString().slice(0,10)}.pdf`);
+    logActivity('Exportó el reporte de trámites a PDF.');
+}
+    </script>
+</body>
+</html>
